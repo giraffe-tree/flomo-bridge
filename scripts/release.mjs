@@ -14,6 +14,17 @@ if (!existsSync(manifestPath)) {
 const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
 const tag = manifest.version;
 
+console.log("Building plugin...");
+const buildResult = spawnSync("npm", ["run", "build"], { cwd: root, stdio: "inherit" });
+if (buildResult.error) {
+  console.error("Failed to run `npm run build`. Is npm installed?");
+  process.exit(1);
+}
+if (buildResult.status !== 0) {
+  console.error(`Build failed with exit code: ${buildResult.status}`);
+  process.exit(buildResult.status ?? 1);
+}
+
 const requiredFiles = ["main.js", "manifest.json", "styles.css"];
 const missing = requiredFiles.filter((f) => !existsSync(path.join(root, f)));
 if (missing.length > 0) {

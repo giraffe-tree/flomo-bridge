@@ -1,11 +1,11 @@
 {
 	"id": "flomo-bridge",
 	"name": "Flomo Bridge",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"minAppVersion": "0.15.0",
-	"description": "将 flomo 笔记同步到 Obsidian vault",
+	"description": "Sync your Flomo notes with bi-directional linking.",
 	"author": "Ernest",
 	"authorUrl": "https://github.com/giraffe-tree",
 	"fundingUrl": "https://buymeacoffee.com/ernestchen",
-	"isDesktopOnly": false
+	"isDesktopOnly": true
 }
