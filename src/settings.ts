@@ -10,6 +10,7 @@ import type FlomoSyncPlugin from '../main';
 import type { LastSyncStats } from './types';
 import { FlomoClient, FlomoApiError } from './flomoClient';
 import { getTooltipManager } from './tooltip';
+import { SETUP_GIF_BASE64 } from './setupGifBase64';
 
 /** 默认设置 */
 export const DEFAULT_SETTINGS: FlomoSyncSettings = {
@@ -1007,13 +1008,11 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
     const demoContent = demoCollapsible.createDiv({
       cls: 'flomo-config-collapsible-content flomo-token-demo-content hidden',
     });
-    const gifPath = `${this.app.vault.configDir}/plugins/${this.plugin.manifest.id}/img/start_setup.gif`;
-    const gifResourcePath = this.app.vault.adapter.getResourcePath(gifPath);
     const imageWrap = demoContent.createDiv({ cls: 'flomo-token-demo-image-wrap' });
     const imageEl = imageWrap.createEl('img', {
       cls: 'flomo-token-demo-image',
       attr: {
-        src: gifResourcePath,
+        src: SETUP_GIF_BASE64,
         alt: 'Token 获取示意图',
       },
     });
@@ -1037,19 +1036,6 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
         evt.preventDefault();
         toggleDemo();
       }
-    });
-
-    // 图片加载失败时提供兜底入口
-    imageEl.addEventListener('error', () => {
-      imageWrap.style.display = 'none';
-      const existingFallback = demoContent.querySelector('.flomo-token-demo-fallback');
-      if (existingFallback) return;
-      demoContent.createEl('a', {
-        cls: 'flomo-token-demo-fallback',
-        text: '图片加载失败，点击查看示意图',
-        href: gifResourcePath,
-        attr: { target: '_blank' },
-      });
     });
 
     // 同步配置卡片
