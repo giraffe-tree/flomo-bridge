@@ -191,7 +191,6 @@ function md5(input: string): string {
 /** Flomo API 客户端 */
 export class FlomoClient {
   private token: string;
-  private debug: boolean;
 
   constructor(config: SyncConfig) {
     // 自动去除 Bearer 前缀
@@ -200,7 +199,6 @@ export class FlomoClient {
       token = token.slice(7).trim();
     }
     this.token = token;
-    this.debug = config.debugMode;
   }
 
   /** 构建请求参数 */
@@ -233,13 +231,6 @@ export class FlomoClient {
       'user-agent':
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     };
-  }
-
-  /** 日志输出 */
-  private log(...args: unknown[]): void {
-    if (this.debug) {
-      console.log('[FlomoSync]', ...args);
-    }
   }
 
   /**
@@ -277,10 +268,6 @@ export class FlomoClient {
       .map(([k, v]) => `${k}=${v}`)
       .join('&') + SIGN_SECRET;
 
-    this.log('=== HTTP Request ===');
-    this.log('URL:', url);
-    this.log('Params:', params);
-    this.log('Sign string for debug:', signStrForDebug);
 
     try {
       const response = await requestUrl({
@@ -295,20 +282,10 @@ export class FlomoClient {
 
       const body = response.json as FlomoApiResponse<FlomoMemo[]>;
 
-      this.log('=== HTTP Response ===');
-      this.log('Status:', response.status);
-      this.log('Body:', body);
 
       if (body.code !== 0) {
         // 处理特定错误码
         if (body.code === -1 && body.message?.includes('sign')) {
-          this.log('!!! SIGN ERROR !!!');
-          // 重新计算签名串，与 generateSign 保持一致（字典序）
-          const sortedEntries = Object.entries(params).sort(([a], [b]) => a.localeCompare(b));
-          this.log('Expected sign base:', sortedEntries
-            .filter(([k]) => k !== 'sign')
-            .map(([k, v]) => `${k}=${v}`)
-            .join('&') + SIGN_SECRET);
           throw new FlomoApiError('签名错误，请检查 token 是否有效', body.code);
         }
         if (body.message?.includes('登录') || body.message?.includes('auth')) {
@@ -349,7 +326,6 @@ export class FlomoClient {
     let page = 1;
 
     while (true) {
-      this.log(`Fetching page ${page}...`);
 
       const items = await this.fetchMemosPage(latestUpdatedAt, latestSlug);
 
@@ -358,7 +334,6 @@ export class FlomoClient {
       }
 
       if (!items || items.length === 0) {
-        this.log('No more items');
         break;
       }
 
@@ -410,7 +385,6 @@ export class FlomoClient {
 
       return response.arrayBuffer;
     } catch (error) {
-      this.log('Download failed:', error);
       return null;
     }
   }

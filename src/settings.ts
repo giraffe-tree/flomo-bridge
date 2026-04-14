@@ -25,6 +25,9 @@ export const DEFAULT_SETTINGS: FlomoSyncSettings = {
   },
   // 上次同步统计
   lastSyncStats: undefined,
+  // 反向链接设置
+  enableBacklinks: true,
+  backlinkLinkStyle: 'wikilink',
 };
 
 /** 插件设置接口 */
@@ -50,6 +53,10 @@ export interface FlomoSyncSettings {
   tokenValidated?: boolean;
   /** Token 验证时间戳 */
   tokenValidatedAt?: number;
+  /** 是否启用反向链接转换 */
+  enableBacklinks?: boolean;
+  /** 反向链接格式：wikilink 或 markdown */
+  backlinkLinkStyle?: 'wikilink' | 'markdown';
 }
 
 /** Tab 定义 */
@@ -1095,7 +1102,7 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
     // 自动同步间隔
     new Setting(syncCard)
       .setName('自动同步间隔')
-      .setDesc('设置为 0 或"手动同步"则关闭自动同步，默认每隔1分钟同步')
+      .setDesc('设置为"手动同步"则关闭自动同步，默认每隔1分钟同步')
       .addDropdown((dropdown) =>
         dropdown
           .addOption('0', '手动同步')
@@ -1114,6 +1121,28 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
             this.plugin.setupAutoSync();
           })
       );
+
+    // 反向链接设置卡片
+    const backlinkCard = container.createDiv({ cls: 'flomo-settings-card' });
+    const backlinkHeader = backlinkCard.createDiv({ cls: 'flomo-settings-card-header' });
+    const backlinkIcon = backlinkHeader.createSpan();
+    setIcon(backlinkIcon, 'link');
+    backlinkHeader.createEl('h3', { text: '反向链接' });
+
+    // 启用反向链接转换
+    new Setting(backlinkCard)
+      .setName('启用反向链接转换')
+      .setDesc('将 flomo memo 互相引用的外部链接自动转换为 Obsidian 反向链接')
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.enableBacklinks ?? true)
+          .onChange(async (value) => {
+            this.plugin.settings.enableBacklinks = value;
+            await this.plugin.saveSettings();
+            this.renderCurrentTab();
+          })
+      );
+
 
     // 开发者选项卡片（默认折叠）
     const devCard = container.createDiv({ cls: 'flomo-settings-card' });
@@ -1190,6 +1219,35 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
       } finally {
         fullSyncButton.disabled = this.plugin.isSyncing;
         fullSyncButton.textContent = this.plugin.isSyncing ? '同步中...' : '全量同步';
+        this.renderCurrentTab();
+      }
+    });
+
+    // 修复卡片
+    const repairCard = container.createDiv({ cls: 'flomo-settings-card' });
+    const repairHeader = repairCard.createDiv({ cls: 'flomo-settings-card-header' });
+    const repairIcon = repairHeader.createSpan();
+    setIcon(repairIcon, 'refresh-cw');
+    repairHeader.createEl('h3', { text: '修复' });
+
+    const repairButtonsContainer = repairCard.createDiv({ cls: 'flomo-action-buttons' });
+    const repairRow = repairButtonsContainer.createDiv({ cls: 'flomo-action-row' });
+    const repairInfo = repairRow.createDiv({ cls: 'flomo-action-info' });
+    repairInfo.createEl('h4', { text: '修复' });
+    repairInfo.createEl('p', { text: '将 flomo 链接替换为 Obsidian 反向链接，并删除本地已被服务端移除的文件' });
+
+    const repairButton = repairRow.createEl('button', {
+      text: this.plugin.isSyncing ? '修复中...' : '开始修复',
+    });
+    repairButton.disabled = this.plugin.isSyncing;
+    repairButton.addEventListener('click', async () => {
+      repairButton.disabled = true;
+      repairButton.textContent = '修复中...';
+      try {
+        await this.plugin.performRepairAndCleanup();
+      } finally {
+        repairButton.disabled = this.plugin.isSyncing;
+        repairButton.textContent = this.plugin.isSyncing ? '修复中...' : '开始修复';
         this.renderCurrentTab();
       }
     });

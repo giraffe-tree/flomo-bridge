@@ -49,7 +49,6 @@ export default class FlomoSyncPlugin extends Plugin {
     // 8. 如果有上次同步记录，显示统计
     if (this.settings.cursor.latest_updated_at > 0) {
       const lastSync = new Date(this.settings.cursor.latest_updated_at * 1000);
-      this.log('Last sync:', lastSync.toLocaleString());
     }
   }
 
@@ -98,6 +97,13 @@ export default class FlomoSyncPlugin extends Plugin {
       name: 'Open Settings',
       callback: () => this.openSettings(),
     });
+
+    // 命令：修复反向链接并清理已删除记录
+    this.addCommand({
+      id: 'repair-and-cleanup',
+      name: 'Repair Backlinks & Cleanup Deleted Memos',
+      callback: () => this.performRepairAndCleanup(),
+    });
   }
 
   /**
@@ -115,10 +121,8 @@ export default class FlomoSyncPlugin extends Plugin {
       // 转换为毫秒
       const ms = interval * 1000;
       this.syncIntervalId = window.setInterval(() => {
-        this.log('Auto sync triggered');
         this.performSync();
       }, ms);
-      this.log(`Auto sync enabled: every ${interval} seconds`);
     }
   }
 
@@ -151,7 +155,6 @@ export default class FlomoSyncPlugin extends Plugin {
       });
 
       const engine = new SyncEngine(client, this.settings, this.app, (progress) => {
-        this.log('Sync progress:', progress);
         if (progress.status === 'error') {
           // 提取错误详情
           const errorDetails: Partial<import('./src/types').ErrorDetails> = {};
@@ -188,6 +191,7 @@ export default class FlomoSyncPlugin extends Plugin {
         updated: stats.updated,
         skipped: stats.skipped,
         failed: stats.failed,
+        deleted: stats.deleted,
         total: stats.total,
         newContent: stats.newContent,
         bufferZone: stats.bufferZone,
@@ -203,7 +207,6 @@ export default class FlomoSyncPlugin extends Plugin {
       // 增量同步仅在状态栏显示统计，不弹出 Notice 通知
       // 状态栏通过 setStatus('success') 和 updateProgress() 已显示详细统计
 
-      this.log('Sync completed:', stats);
     } catch (error) {
       this.handleSyncError(error);
     } finally {
@@ -240,7 +243,6 @@ export default class FlomoSyncPlugin extends Plugin {
       });
 
       const engine = new SyncEngine(client, this.settings, this.app, (progress) => {
-        this.log('Full sync progress:', progress);
         if (progress.status === 'error') {
           // 提取错误详情
           const errorDetails: Partial<import('./src/types').ErrorDetails> = {};
@@ -277,6 +279,7 @@ export default class FlomoSyncPlugin extends Plugin {
         updated: stats.updated,
         skipped: stats.skipped,
         failed: stats.failed,
+        deleted: stats.deleted,
         total: stats.total,
         newContent: stats.newContent,
         bufferZone: stats.bufferZone,
@@ -292,14 +295,142 @@ export default class FlomoSyncPlugin extends Plugin {
       new Notice(
         `Flomo 全量同步完成\n` +
         `新增: ${stats.created} | 更新: ${stats.updated}\n` +
-        `跳过: ${stats.skipped} | 失败: ${stats.failed}\n` +
+        `跳过: ${stats.skipped} | 删除: ${stats.deleted} | 失败: ${stats.failed}\n` +
         `耗时: ${duration}s`,
         4000
       );
 
-      this.log('Full sync completed:', stats);
     } catch (error) {
       this.handleSyncError(error);
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  /**
+   * 修复反向链接
+   */
+  async performRepairBacklinks(): Promise<void> {
+    if (this.isSyncing) {
+      new Notice('同步正在进行中，请稍后再试');
+      return;
+    }
+
+    this.isSyncing = true;
+    this.statusBar.setStatus('syncing', '正在修复反向链接...');
+
+    try {
+      const client = new FlomoClient({
+        token: this.settings.token,
+        targetDir: this.settings.targetDir,
+        downloadAttachments: this.settings.downloadAttachments,
+        syncInterval: this.settings.syncInterval,
+        debugMode: this.settings.debugMode,
+      });
+
+      const engine = new SyncEngine(client, this.settings, this.app);
+      const result = await engine.repairBacklinks();
+
+      this.statusBar.setStatus('success', `反向链接修复完成：扫描 ${result.scanned} 条，更新 ${result.updated} 条`);
+      new Notice(`反向链接修复完成\n扫描: ${result.scanned} 条\n更新: ${result.updated} 条`, 4000);
+    } catch (error) {
+      const err = error as Error;
+      new Notice(`修复失败: ${err.message}`, 5000);
+      this.statusBar.setStatus('error', '修复反向链接失败');
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  /**
+   * 清理已删除的 memo
+   */
+  async performCleanupDeletedMemos(): Promise<void> {
+    if (this.isSyncing) {
+      new Notice('同步正在进行中，请稍后再试');
+      return;
+    }
+
+    if (!confirm('确定要清理已删除的本地记录吗？这会对比远程所有 memo，删除本地存在但远程已不存在的文件。')) {
+      return;
+    }
+
+    this.isSyncing = true;
+    this.statusBar.setStatus('syncing', '正在清理已删除记录...');
+
+    try {
+      const client = new FlomoClient({
+        token: this.settings.token,
+        targetDir: this.settings.targetDir,
+        downloadAttachments: this.settings.downloadAttachments,
+        syncInterval: this.settings.syncInterval,
+        debugMode: this.settings.debugMode,
+      });
+
+      const engine = new SyncEngine(client, this.settings, this.app);
+      const result = await engine.cleanupDeletedMemos((progress) => {
+        if (progress.message) {
+          this.statusBar.setStatus('syncing', progress.message);
+        }
+      });
+
+      this.statusBar.setStatus('success', `清理完成：扫描 ${result.scanned} 条，删除 ${result.deleted} 条`);
+      new Notice(`清理完成\n扫描: ${result.scanned} 条\n删除: ${result.deleted} 条`, 4000);
+    } catch (error) {
+      const err = error as Error;
+      new Notice(`清理失败: ${err.message}`, 5000);
+      this.statusBar.setStatus('error', '清理失败');
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  /**
+   * 修复反向链接并清理已删除记录
+   */
+  async performRepairAndCleanup(): Promise<void> {
+    if (this.isSyncing) {
+      new Notice('同步正在进行中，请稍后再试');
+      return;
+    }
+
+    this.isSyncing = true;
+    this.statusBar.setStatus('syncing', '正在修复...');
+
+    try {
+      const client = new FlomoClient({
+        token: this.settings.token,
+        targetDir: this.settings.targetDir,
+        downloadAttachments: this.settings.downloadAttachments,
+        syncInterval: this.settings.syncInterval,
+        debugMode: this.settings.debugMode,
+      });
+
+      const engine = new SyncEngine(client, this.settings, this.app);
+
+      // 1. 修复反向链接
+      this.statusBar.setStatus('syncing', '正在修复反向链接...');
+      const repairResult = await engine.repairBacklinks();
+
+      // 2. 清理已删除记录
+      this.statusBar.setStatus('syncing', '正在清理已删除记录...');
+      const cleanupResult = await engine.cleanupDeletedMemos((progress) => {
+        if (progress.message) {
+          this.statusBar.setStatus('syncing', progress.message);
+        }
+      });
+
+      this.statusBar.setStatus('success', '修复完成');
+      new Notice(
+        `修复完成\n` +
+        `反向链接: 扫描 ${repairResult.scanned} 条，更新 ${repairResult.updated} 条\n` +
+        `清理记录: 扫描 ${cleanupResult.scanned} 条，删除 ${cleanupResult.deleted} 条`,
+        5000
+      );
+    } catch (error) {
+      const err = error as Error;
+      new Notice(`修复失败: ${err.message}`, 5000);
+      this.statusBar.setStatus('error', '修复失败');
     } finally {
       this.isSyncing = false;
     }
@@ -309,7 +440,6 @@ export default class FlomoSyncPlugin extends Plugin {
    * 处理同步错误
    */
   private handleSyncError(error: unknown): void {
-    this.log('Sync error:', error);
 
     if (error instanceof FlomoApiError) {
       if (error.status === 401 || error.code === -1) {

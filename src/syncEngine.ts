@@ -25,6 +25,8 @@ import {
   extractExifDateTime,
   extractImageIdFromUrl,
 } from './formatter';
+import { BacklinkIndex } from './backlinkIndex';
+import { rewriteFlomoLinks, BacklinkLinkStyle } from './backlinkRewriter';
 
 /** 同步进度回调 */
 export interface SyncProgress {
@@ -41,6 +43,7 @@ export interface SyncProgress {
     updated: number;
     skipped: number;
     failed: number;
+    deleted: number;
   };
   /** B-C 段（真正新增内容）的统计 */
   newContentStats?: {
@@ -48,6 +51,7 @@ export interface SyncProgress {
     updated: number;
     skipped: number;
     failed: number;
+    deleted: number;
     total: number;
   };
   /** A-B 段（容错缓冲区）的统计 */
@@ -100,6 +104,7 @@ export class SyncEngine {
       updated: 0,
       skipped: 0,
       failed: 0,
+      deleted: 0,
       total: 0,
       startTime: new Date(),
       // 初始化 B-C 段统计
@@ -108,6 +113,7 @@ export class SyncEngine {
         updated: 0,
         skipped: 0,
         failed: 0,
+        deleted: 0,
         total: 0,
       },
       // 初始化 A-B 段统计（只记录 created/updated）
@@ -120,6 +126,14 @@ export class SyncEngine {
 
     // 1. 确保目标目录存在
     const targetDir = await this.ensureTargetDir();
+
+    // 1.5 构建反向链接索引
+    let backlinkIndex: BacklinkIndex | undefined;
+    if (this.settings.enableBacklinks) {
+      backlinkIndex = new BacklinkIndex(this.app, this.settings.targetDir);
+      await backlinkIndex.build();
+      this.log('Backlink index built:', backlinkIndex.size(), 'entries');
+    }
 
     // 2. 确定同步游标
     let cursor: SyncCursor;
@@ -166,7 +180,7 @@ export class SyncEngine {
         // 处理每条 memo
         for (const memo of items) {
           try {
-            const result = await this.processMemo(memo, targetDir);
+            const result = await this.processMemo(memo, targetDir, backlinkIndex);
 
             // 判断属于哪一段
             const memoUpdatedAt = parseTimestamp(memo.updated_at);
@@ -230,6 +244,7 @@ export class SyncEngine {
               updated: stats.updated,
               skipped: stats.skipped,
               failed: stats.failed,
+              deleted: stats.deleted,
             },
             newContentStats: stats.newContent,
             bufferZoneStats: stats.bufferZone,
@@ -254,16 +269,16 @@ export class SyncEngine {
       const nc = stats.newContent;
       const bz = stats.bufferZone;
       const completionMessage = nc && nc.total > 0
-        ? `同步完成：新增 ${nc.created}，更新 ${nc.updated}，跳过 ${nc.skipped}`
-        : `同步完成：新增 ${stats.created}，更新 ${stats.updated}，跳过 ${stats.skipped}`;
+        ? `同步完成：新增 ${nc.created}，更新 ${nc.updated}，跳过 ${nc.skipped}${nc.deleted > 0 ? '，删除 ' + nc.deleted : ''}`
+        : `同步完成：新增 ${stats.created}，更新 ${stats.updated}，跳过 ${stats.skipped}${stats.deleted > 0 ? '，删除 ' + stats.deleted : ''}`;
 
       // 输出详细统计报告
       this.log('========== 同步统计报告 ==========');
-      this.log(`总处理: ${stats.total} 条 (新增 ${stats.created} / 更新 ${stats.updated} / 跳过 ${stats.skipped} / 失败 ${stats.failed})`);
+      this.log(`总处理: ${stats.total} 条 (新增 ${stats.created} / 更新 ${stats.updated} / 跳过 ${stats.skipped} / 删除 ${stats.deleted} / 失败 ${stats.failed})`);
       if (!fullSync) {
         this.log(`原始游标点 (B点): ${originalCursorTime} (${new Date(originalCursorTime * 1000).toISOString()})`);
         this.log(`容错游标点 (A点): ${cursor.latest_updated_at} (${new Date(cursor.latest_updated_at * 1000).toISOString()})`);
-        this.log(`B-C段 (真正新增): ${nc?.total || 0} 条 (新增 ${nc?.created || 0} / 更新 ${nc?.updated || 0} / 跳过 ${nc?.skipped || 0} / 失败 ${nc?.failed || 0})`);
+        this.log(`B-C段 (真正新增): ${nc?.total || 0} 条 (新增 ${nc?.created || 0} / 更新 ${nc?.updated || 0} / 跳过 ${nc?.skipped || 0} / 删除 ${nc?.deleted || 0} / 失败 ${nc?.failed || 0})`);
         this.log(`A-B段 (容错缓冲): ${bz?.total || 0} 条 (新增 ${bz?.created || 0} / 更新 ${bz?.updated || 0}) - 注意: skipped 不计入此段`);
       } else {
         this.log('全量同步: 所有内容计入 B-C 段');
@@ -318,7 +333,8 @@ export class SyncEngine {
    */
   private async processMemo(
     memo: FlomoMemo,
-    targetDir: TFolder
+    targetDir: TFolder,
+    backlinkIndex?: BacklinkIndex
   ): Promise<FileOperationResult> {
     const slug = memo.slug;
     const newFilename = generateFilename(memo);
@@ -331,9 +347,24 @@ export class SyncEngine {
       slug: memo.slug,
       created_at: memo.created_at,
       updated_at: memo.updated_at,
+      deleted_at: memo.deleted_at,
       tags: memo.tags,
       filesCount: memo.files?.length || 0,
     });
+
+    // 0. 检查是否已在服务端删除
+    if (memo.deleted_at != null && memo.deleted_at !== '') {
+      const existingFile = await this.findFileBySlug(slug, targetDir);
+      if (existingFile) {
+        this.log('Memo deleted remotely, removing local file:', existingFile.path);
+        await this.app.vault.delete(existingFile);
+        await this.deleteMemoAttachments(slug);
+        console.log('[FlomoSync Debug] -> DELETED (remote deleted_at)');
+        return 'deleted';
+      }
+      console.log('[FlomoSync Debug] -> SKIPPED (remote deleted, no local file)');
+      return 'skipped';
+    }
 
     // 1. 下载附件（如果需要）
     const attachmentPaths = new Map<string, string>();
@@ -358,7 +389,12 @@ export class SyncEngine {
     console.log('[FlomoSync Debug] Attachment paths:', Object.fromEntries(attachmentPaths));
 
     // 2. 生成 Markdown 内容
-    const content = memoToMarkdown(memo, attachmentPaths);
+    let content = memoToMarkdown(memo, attachmentPaths);
+
+    // 2.5 反向链接替换
+    if (backlinkIndex) {
+      content = rewriteFlomoLinks(content, backlinkIndex, this.settings.backlinkLinkStyle);
+    }
 
     // 添加诊断日志：生成内容的前200字符
     console.log('[FlomoSync Debug] Generated content (first 200 chars):', content.slice(0, 200));
@@ -370,11 +406,6 @@ export class SyncEngine {
       // 3a. 文件已存在
       const existingContent = await this.app.vault.adapter.read(existingFile.path);
 
-      // 添加诊断日志：比较内容
-      console.log('[FlomoSync Debug] File exists:', existingFile.path);
-      console.log('[FlomoSync Debug] Existing content (first 200 chars):', existingContent.slice(0, 200));
-      console.log('[FlomoSync Debug] Content length - existing:', existingContent.length, 'new:', content.length);
-      console.log('[FlomoSync Debug] Content match:', existingContent === content);
 
       if (existingContent === content) {
         // 内容完全相同，跳过
@@ -423,6 +454,39 @@ export class SyncEngine {
     }
 
     return null;
+  }
+
+  /**
+   * 删除与指定 slug 相关的附件
+   *
+   * 附件文件名中通常包含 slug，据此在 attachments 目录下查找并删除
+   */
+  private async deleteMemoAttachments(slug: string): Promise<void> {
+    const attachmentsDir = `${this.settings.targetDir}/attachments`;
+    const folder = this.app.vault.getAbstractFileByPath(attachmentsDir);
+    if (!(folder instanceof TFolder)) {
+      return;
+    }
+
+    const pattern = new RegExp(slug);
+    const filesToDelete: TFile[] = [];
+
+    const collectFiles = (dir: TFolder) => {
+      for (const child of dir.children) {
+        if (child instanceof TFile && pattern.test(child.name)) {
+          filesToDelete.push(child);
+        } else if (child instanceof TFolder) {
+          collectFiles(child);
+        }
+      }
+    };
+
+    collectFiles(folder);
+
+    for (const file of filesToDelete) {
+      this.log('Deleting attachment:', file.path);
+      await this.app.vault.delete(file);
+    }
   }
 
   /**
@@ -528,6 +592,127 @@ export class SyncEngine {
     }
 
     throw new Error(`Failed to create target directory: ${dirPath}`);
+  }
+
+  /**
+   * 清理本地已删除的 memo
+   *
+   * 全量拉取远程所有 memo 的 slug，删除本地存在但远程不存在或已被标记删除的文件
+   */
+  async cleanupDeletedMemos(
+    onProgress?: (progress: { status: 'fetching' | 'processing' | 'completed' | 'error'; message?: string }) => void
+  ): Promise<{ scanned: number; deleted: number }> {
+    const targetDir = this.settings.targetDir.replace(/^\.?\//, '').replace(/\/+$/, '');
+    const targetPrefix = targetDir ? `${targetDir}/` : '';
+    this.log('[Cleanup] START targetDir:', targetDir, 'targetPrefix:', targetPrefix);
+
+    // 1. 全量拉取所有远程 slug（区分正常 slug 与已删除 slug）
+    onProgress?.({ status: 'fetching', message: '正在拉取远程记录...' });
+    const remoteSlugs = new Set<string>();
+    const deletedSlugs = new Set<string>();
+
+    try {
+      for await (const items of this.client.iterMemos(0, (page, count) => {
+        this.log(`[Cleanup] fetching page ${page}, got ${count} items. Cumulative remote slugs so far: ${remoteSlugs.size}, deleted: ${deletedSlugs.size}`);
+        onProgress?.({ status: 'fetching', message: `拉取第 ${page} 页，${count} 条` });
+      })) {
+        for (const memo of items) {
+          if (!memo.slug) continue;
+
+          remoteSlugs.add(memo.slug);
+          if (memo.deleted_at != null && memo.deleted_at !== '') {
+            deletedSlugs.add(memo.slug);
+          }
+        }
+        this.log('[Cleanup] After processing page, cumulative remote slugs:', remoteSlugs.size, 'deleted:', deletedSlugs.size);
+      }
+    } catch (error) {
+      this.log('[Cleanup] ERROR while fetching remote memos:', error);
+      onProgress?.({ status: 'error', message: '拉取远程记录失败' });
+      throw error;
+    }
+
+    this.log('[Cleanup] Remote slugs fetched total:', remoteSlugs.size, 'deleted:', deletedSlugs.size);
+    onProgress?.({ status: 'processing', message: `远程共 ${remoteSlugs.size} 条（已删除 ${deletedSlugs.size} 条），开始比对本地文件...` });
+
+    // 2. 扫描本地文件
+    const allFiles = this.app.vault.getMarkdownFiles();
+    this.log('[Cleanup] Total markdown files in vault:', allFiles.length);
+
+    let scanned = 0;
+    let deleted = 0;
+
+    for (const file of allFiles) {
+      const shouldScan = file.path.startsWith(targetPrefix) && !file.path.includes('/attachments/');
+
+      if (!shouldScan) {
+        continue;
+      }
+
+      scanned++;
+      const slug = this.extractSlugFromFile(file);
+      const inRemote = slug ? remoteSlugs.has(slug) : false;
+      const isDeleted = slug ? deletedSlugs.has(slug) : false;
+
+      if (slug && (!inRemote || isDeleted)) {
+        const reason = isDeleted ? 'remote deleted' : 'not in remote';
+        this.log('[Cleanup] DELETING local memo (' + reason + '):', file.path, 'slug:', slug);
+        await this.app.vault.delete(file);
+        await this.deleteMemoAttachments(slug);
+        deleted++;
+      } else {
+        this.log('[Cleanup] KEEPING local memo:', file.path, 'slug:', slug, 'reason:', inRemote ? 'exists in remote' : 'no slug extracted');
+      }
+    }
+
+    this.log('[Cleanup] COMPLETE - scanned:', scanned, 'deleted:', deleted);
+    onProgress?.({ status: 'completed', message: `清理完成：扫描 ${scanned} 条，删除 ${deleted} 条` });
+    return { scanned, deleted };
+  }
+
+  /**
+   * 从本地文件提取 slug（仅使用文件名，避免 metadataCache 延迟或不一致）
+   */
+  private extractSlugFromFile(file: TFile): string | null {
+    const match = file.name.match(/_([A-Za-z0-9]+)\.md$/);
+    return match ? match[1] : null;
+  }
+
+  /**
+   * 修复所有本地笔记的反向链接
+   *
+   * 遍历目标目录下所有 markdown 文件，重新执行反向链接替换
+   */
+  async repairBacklinks(): Promise<{ scanned: number; updated: number }> {
+    const targetDir = this.settings.targetDir.replace(/^\.?\//, '').replace(/\/+$/, '');
+    const targetPrefix = targetDir ? `${targetDir}/` : '';
+
+    const backlinkIndex = new BacklinkIndex(this.app, this.settings.targetDir);
+    await backlinkIndex.build();
+    this.log('Repair backlinks - index built:', backlinkIndex.size(), 'entries');
+
+    const allFiles = this.app.vault.getMarkdownFiles();
+    let scanned = 0;
+    let updated = 0;
+
+    for (const file of allFiles) {
+      if (!file.path.startsWith(targetPrefix) || file.path.includes('/attachments/')) {
+        continue;
+      }
+
+      scanned++;
+      const content = await this.app.vault.adapter.read(file.path);
+      const newContent = rewriteFlomoLinks(content, backlinkIndex, this.settings.backlinkLinkStyle);
+
+      if (newContent !== content) {
+        await this.app.vault.modify(file, newContent);
+        updated++;
+        this.log('Repaired backlinks in:', file.path);
+      }
+    }
+
+    this.log('Repair backlinks complete - scanned:', scanned, 'updated:', updated);
+    return { scanned, updated };
   }
 
   /**

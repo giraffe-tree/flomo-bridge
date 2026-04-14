@@ -108,12 +108,14 @@ export class StatusBarManager {
       updated: number;
       skipped: number;
       failed: number;
+      deleted: number;
     };
     newContentStats?: {
       created: number;
       updated: number;
       skipped: number;
       failed: number;
+      deleted: number;
       total: number;
     };
     bufferZoneStats?: {
@@ -226,8 +228,8 @@ export class StatusBarManager {
    */
   updateProgress(
     processedCount: number,
-    stats: { created: number; updated: number; skipped: number; failed: number },
-    newContentStats?: { created: number; updated: number; skipped: number; failed: number; total: number },
+    stats: { created: number; updated: number; skipped: number; failed: number; deleted: number },
+    newContentStats?: { created: number; updated: number; skipped: number; failed: number; deleted: number; total: number },
     bufferZoneStats?: { created: number; updated: number; total: number }
   ): void {
     this.currentProgress = { processedCount, stats, newContentStats, bufferZoneStats };

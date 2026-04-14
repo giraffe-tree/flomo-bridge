@@ -24,6 +24,8 @@ export interface FlomoMemo {
   updated_at: string;
   /** 来源，如 "android", "ios", "web" */
   source: string;
+  /** 删除时间，存在且不为 null 时表示已在服务端删除 */
+  deleted_at?: string | null;
   /** 附件列表 */
   files?: FlomoFile[];
 }
@@ -55,6 +57,8 @@ export interface SyncStats {
   skipped: number;
   /** 本次同步失败数量 */
   failed: number;
+  /** 本次同步删除数量 */
+  deleted: number;
   /** 总处理数量 */
   total: number;
   /** 同步开始时间 */
@@ -68,6 +72,7 @@ export interface SyncStats {
     updated: number;
     skipped: number;
     failed: number;
+    deleted: number;
     total: number;
   };
 
@@ -89,6 +94,8 @@ export interface LastSyncStats {
   skipped: number;
   /** 失败数量 */
   failed: number;
+  /** 删除数量 */
+  deleted: number;
   /** 总处理数量 */
   total: number;
   /** 同步时间戳 */
@@ -102,6 +109,7 @@ export interface LastSyncStats {
     updated: number;
     skipped: number;
     failed: number;
+    deleted: number;
     total: number;
   };
 
@@ -129,7 +137,7 @@ export interface ErrorDetails {
 }
 
 /** 文件操作结果 */
-export type FileOperationResult = 'created' | 'updated' | 'skipped' | 'failed';
+export type FileOperationResult = 'created' | 'updated' | 'skipped' | 'failed' | 'deleted';
 
 /** 同步配置 */
 export interface SyncConfig {
