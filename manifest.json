@@ -1,7 +1,7 @@
 {
   "id": "flomo-bridge",
   "name": "Flomo Bridge",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "minAppVersion": "0.15.0",
   "description": "将 flomo 笔记同步到 Obsidian vault",
   "author": "Ernest",
