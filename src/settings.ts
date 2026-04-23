@@ -94,10 +94,7 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
     this.addSettingsStyles(containerEl);
 
     // 标题
-    containerEl.createEl('h2', {
-      text: 'Flomo Bridge 设置',
-      cls: 'flomo-settings-title',
-    });
+    new Setting(containerEl).setName('Flomo Bridge 设置').setHeading();
 
     // 渲染 Tab 导航
     this.renderTabNav(containerEl);
@@ -110,602 +107,10 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
   }
 
   /**
-   * 添加设置面板样式
+   * 添加设置面板样式（样式已迁移至 styles.css）
    */
   private addSettingsStyles(containerEl: HTMLElement): void {
     containerEl.addClass('flomo-settings-container');
-
-    // 注入样式（如果不存在）
-    const styleId = 'flomo-settings-styles';
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement('style');
-      style.id = styleId;
-      style.textContent = this.getSettingsStyles();
-      document.head.appendChild(style);
-    }
-  }
-
-  /**
-   * 获取设置面板样式
-   */
-  private getSettingsStyles(): string {
-    return `
-      /* 设置面板容器 */
-      .flomo-settings-container {
-        padding-bottom: 40px;
-      }
-
-      .flomo-settings-title {
-        margin-bottom: 16px;
-      }
-
-      /* Tab 导航 */
-      .flomo-tab-nav {
-        display: flex;
-        gap: 4px;
-        border-bottom: 2px solid var(--background-modifier-border);
-        margin-bottom: 20px;
-        padding-bottom: 0;
-      }
-
-      .flomo-tab-button {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 10px 16px;
-        border: none;
-        background: transparent;
-        color: var(--text-muted);
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -2px;
-        transition: all 0.2s ease;
-        border-radius: 4px 4px 0 0;
-      }
-
-      .flomo-tab-button:hover {
-        color: var(--text-normal);
-        background: var(--background-modifier-hover);
-      }
-
-      .flomo-tab-button.active {
-        color: var(--text-accent);
-        border-bottom-color: var(--text-accent);
-        background: var(--background-modifier-hover);
-      }
-
-      .flomo-tab-button .flomo-tab-icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 16px;
-        height: 16px;
-      }
-
-      .flomo-tab-button .flomo-tab-icon svg {
-        width: 16px;
-        height: 16px;
-      }
-
-      /* Tab 内容区域 */
-      .flomo-tab-content {
-        animation: fadeIn 0.2s ease;
-      }
-
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(4px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-
-      /* 卡片容器 */
-      .flomo-settings-card {
-        background: var(--background-secondary);
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 16px;
-        border: 1px solid var(--background-modifier-border);
-      }
-
-      .flomo-settings-card-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 12px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid var(--background-modifier-border);
-      }
-
-      .flomo-settings-card-header h3 {
-        margin: 0;
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text-normal);
-      }
-
-      .flomo-settings-card-content {
-        /* 卡片内容区域 */
-      }
-
-      .flomo-settings-card.danger {
-        border-color: var(--text-error);
-        background: var(--background-secondary);
-      }
-
-      .flomo-settings-card.danger .flomo-settings-card-header {
-        border-bottom-color: rgba(var(--text-error-rgb, 248, 81, 73), 0.3);
-      }
-
-      .flomo-settings-card.danger .flomo-settings-card-header h3 {
-        color: var(--text-error);
-      }
-
-      /* 状态卡片网格 */
-      .flomo-status-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 12px;
-        margin-bottom: 16px;
-      }
-
-      .flomo-status-card {
-        background: var(--background-primary);
-        border-radius: 6px;
-        padding: 12px;
-        text-align: center;
-        border: 1px solid var(--background-modifier-border);
-      }
-
-      .flomo-status-card-title {
-        font-size: 11px;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 8px;
-      }
-
-      .flomo-status-card-value {
-        font-size: 18px;
-        font-weight: 600;
-        color: var(--text-normal);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-      }
-
-      .flomo-status-card-value .status-icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 18px;
-        height: 18px;
-      }
-
-      .flomo-status-card-value .status-icon svg {
-        width: 18px;
-        height: 18px;
-      }
-
-      .flomo-status-card-value.status-connected {
-        color: var(--text-success, #2ea043);
-      }
-
-      .flomo-status-card-value.status-disconnected {
-        color: var(--text-muted);
-      }
-
-      .flomo-status-card-value.status-syncing {
-        color: var(--text-accent, #58a6ff);
-      }
-
-      .flomo-status-card-value.status-error {
-        color: var(--text-error, #f85149);
-      }
-
-      .flomo-status-card-value.status-pending {
-        color: var(--text-warning, #d29922);
-      }
-
-      .flomo-status-card-action {
-        margin-top: 8px;
-        font-size: 11px;
-        color: var(--text-muted);
-      }
-
-      /* 概览页 - 迷你热力图 */
-      .flomo-overview-heatmap-mini {
-        margin-top: 12px;
-      }
-
-      .flomo-overview-heatmap-mini h4 {
-        font-size: 12px;
-        color: var(--text-muted);
-        margin-bottom: 8px;
-        font-weight: 500;
-      }
-
-      .flomo-heatmap-mini-grid {
-        display: flex;
-        gap: 3px;
-      }
-
-      .flomo-heatmap-mini-day {
-        width: 14px;
-        height: 14px;
-        border-radius: 3px;
-        background: var(--background-modifier-border);
-      }
-
-      .flomo-heatmap-mini-day.has-data {
-        background: var(--text-accent);
-      }
-
-      /* 最近同步记录 */
-      .flomo-recent-sync-list {
-        margin-top: 12px;
-      }
-
-      .flomo-sync-list-item {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 8px 12px;
-        background: var(--background-primary);
-        border-radius: 6px;
-        margin-bottom: 8px;
-        font-size: 12px;
-      }
-
-      .flomo-sync-list-item:last-child {
-        margin-bottom: 0;
-      }
-
-      .flomo-sync-list-item .sync-time {
-        color: var(--text-muted);
-        min-width: 80px;
-      }
-
-      .flomo-sync-list-item .sync-status {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-      }
-
-      .flomo-sync-list-item .sync-stats {
-        margin-left: auto;
-        color: var(--text-muted);
-      }
-
-      /* 配置页 */
-      .flomo-config-section {
-        margin-bottom: 16px;
-      }
-
-      .flomo-config-section:last-child {
-        margin-bottom: 0;
-      }
-
-      .flomo-config-collapsible {
-        border: 1px solid var(--background-modifier-border);
-        border-radius: 6px;
-        overflow: hidden;
-      }
-
-      .flomo-config-collapsible-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 10px 12px;
-        background: var(--background-primary);
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-      }
-
-      .flomo-config-collapsible-header:hover {
-        background: var(--background-modifier-hover);
-      }
-
-      .flomo-config-collapsible-content {
-        padding: 12px;
-        border-top: 1px solid var(--background-modifier-border);
-      }
-
-      .flomo-config-collapsible-content.hidden {
-        display: none;
-      }
-
-      .flomo-token-help-block {
-        margin-top: 6px;
-      }
-
-      .flomo-token-help-steps {
-        font-size: 12px;
-        color: var(--text-muted);
-        line-height: 1.6;
-        margin-bottom: 6px;
-      }
-
-      .flomo-token-help-steps a {
-        color: var(--text-accent);
-        text-decoration: underline;
-      }
-
-      .flomo-token-demo-collapsible {
-        border: none;
-        background: transparent;
-      }
-
-      .flomo-token-demo-collapsible .flomo-config-collapsible-header {
-        justify-content: flex-start;
-        gap: 6px;
-        padding: 4px 0;
-        background: transparent;
-        border: none;
-        color: var(--text-muted);
-        font-size: 12px;
-        font-weight: 500;
-      }
-
-      .flomo-token-demo-collapsible .flomo-config-collapsible-header:hover {
-        background: transparent;
-        color: var(--text-normal);
-      }
-
-      .flomo-token-demo-collapsible .flomo-config-collapsible-header:focus-visible {
-        outline: 2px solid var(--text-accent);
-        outline-offset: 2px;
-        border-radius: 4px;
-      }
-
-      .flomo-token-demo-header-label {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-      }
-
-      .flomo-token-demo-chevron {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 12px;
-        height: 12px;
-        color: var(--text-faint);
-        transition: transform 0.2s ease;
-      }
-
-      .flomo-token-demo-chevron svg {
-        width: 12px;
-        height: 12px;
-      }
-
-      .flomo-token-demo-collapsible.is-open .flomo-token-demo-chevron {
-        transform: rotate(90deg);
-      }
-
-      .flomo-token-demo-collapsible.is-open .flomo-config-collapsible-header {
-        color: var(--text-normal);
-      }
-
-      .flomo-token-demo-content {
-        padding: 8px 0 0;
-        border-top: none;
-      }
-
-      .flomo-token-demo-image-wrap {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        border-radius: 8px;
-        border: 1px solid var(--background-modifier-border);
-        background: var(--background-primary);
-      }
-
-      .flomo-token-demo-image {
-        display: block;
-        width: 100%;
-        max-width: 100%;
-        height: auto;
-      }
-
-      .flomo-token-demo-fallback {
-        display: inline-block;
-        margin-top: 8px;
-        font-size: 12px;
-      }
-
-      /* 操作页 */
-      .flomo-action-buttons {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-
-      .flomo-action-row {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 12px;
-        background: var(--background-primary);
-        border-radius: 6px;
-      }
-
-      .flomo-action-info {
-        flex: 1;
-      }
-
-      .flomo-action-info h4 {
-        margin: 0 0 4px 0;
-        font-size: 13px;
-        font-weight: 600;
-      }
-
-      .flomo-action-info p {
-        margin: 0;
-        font-size: 12px;
-        color: var(--text-muted);
-      }
-
-      .flomo-sync-progress {
-        margin-top: 12px;
-        padding: 12px;
-        background: var(--background-primary);
-        border-radius: 6px;
-      }
-
-      .flomo-progress-bar {
-        height: 4px;
-        background: var(--background-modifier-border);
-        border-radius: 2px;
-        overflow: hidden;
-        margin-top: 8px;
-      }
-
-      .flomo-progress-bar-fill {
-        height: 100%;
-        background: var(--text-accent);
-        border-radius: 2px;
-        transition: width 0.3s ease;
-      }
-
-      /* 危险区域 */
-      .flomo-danger-zone {
-        margin-top: 16px;
-      }
-
-      .flomo-danger-zone-title {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--text-error);
-        font-size: 13px;
-        font-weight: 600;
-        margin-bottom: 12px;
-      }
-
-      /* 统计网格 */
-      .flomo-stats-grid-detailed {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 12px;
-        margin-bottom: 16px;
-      }
-
-      .flomo-stats-card {
-        background: var(--background-primary);
-        border-radius: 6px;
-        padding: 16px 12px;
-        text-align: center;
-        border: 1px solid var(--background-modifier-border);
-      }
-
-      .flomo-stats-card-value {
-        font-size: 24px;
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-        font-family: var(--font-monospace);
-        line-height: 1.2;
-      }
-
-      .flomo-stats-card-label {
-        font-size: 11px;
-        color: var(--text-muted);
-        margin-top: 4px;
-      }
-
-      .flomo-stats-card.created .flomo-stats-card-value {
-        color: var(--text-success, #2ea043);
-      }
-
-      .flomo-stats-card.updated .flomo-stats-card-value {
-        color: var(--text-accent, #58a6ff);
-      }
-
-      .flomo-stats-card.skipped .flomo-stats-card-value {
-        color: var(--text-muted);
-      }
-
-      .flomo-stats-card.failed .flomo-stats-card-value {
-        color: var(--text-error, #f85149);
-      }
-
-      /* 空状态 */
-      .flomo-empty-state {
-        text-align: center;
-        padding: 32px 16px;
-        color: var(--text-muted);
-      }
-
-      .flomo-empty-state-icon {
-        margin-bottom: 12px;
-        opacity: 0.5;
-      }
-
-      .flomo-empty-state-text {
-        font-size: 13px;
-      }
-
-      /* 设置项紧凑样式 */
-      .flomo-settings-card .setting-item {
-        padding: 8px 0;
-      }
-
-      .flomo-settings-card .setting-item:first-child {
-        padding-top: 0;
-      }
-
-      .flomo-settings-card .setting-item:last-child {
-        padding-bottom: 0;
-      }
-
-      .flomo-settings-card .setting-item-description {
-        font-size: 11px;
-      }
-
-      /* 验证状态指示器 */
-      .flomo-validation-status {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 12px;
-        margin-left: 8px;
-      }
-
-      .flomo-validation-status.valid {
-        color: var(--text-success);
-      }
-
-      .flomo-validation-status.invalid {
-        color: var(--text-error);
-      }
-
-      .flomo-validation-status .status-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: currentColor;
-      }
-
-      /* 热力图头部统计 */
-      .flomo-heatmap-header-stats {
-        margin-left: auto;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 12px;
-      }
-
-      .flomo-heatmap-stat-item {
-        color: var(--text-muted);
-      }
-
-      .flomo-heatmap-stat-separator {
-        color: var(--text-faint);
-      }
-    `;
   }
 
   /**
@@ -908,13 +313,10 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
       failedCard.createDiv({ cls: 'flomo-stats-card-label', text: '失败' });
 
       // 详细信息
-      const footer = statsCard.createDiv({
+      statsCard.createDiv({
         cls: 'flomo-stats-footer',
         text: `总计: ${lastStats.total} 条 | 耗时: ${lastStats.duration}秒 | ${new Date(lastStats.timestamp).toLocaleString('zh-CN')}`,
       });
-      footer.style.marginTop = '12px';
-      footer.style.fontSize = '12px';
-      footer.style.color = 'var(--text-muted)';
 
       // 如果有两套统计，添加说明
       if (hasNewContentStats) {
@@ -923,11 +325,7 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
         if (bz && bz.total > 0) {
           noteText += `，其中容错区有 ${bz.created} 新增 / ${bz.updated} 更新`;
         }
-        const noteEl = statsCard.createDiv({ cls: 'flomo-stats-note', text: noteText });
-        noteEl.style.marginTop = '8px';
-        noteEl.style.fontSize = '11px';
-        noteEl.style.color = 'var(--text-faint)';
-        noteEl.style.fontStyle = 'italic';
+        statsCard.createDiv({ cls: 'flomo-stats-note', text: noteText });
       }
     }
 
@@ -1009,7 +407,7 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
       cls: 'flomo-config-collapsible-content flomo-token-demo-content hidden',
     });
     const imageWrap = demoContent.createDiv({ cls: 'flomo-token-demo-image-wrap' });
-    const imageEl = imageWrap.createEl('img', {
+    imageWrap.createEl('img', {
       cls: 'flomo-token-demo-image',
       attr: {
         src: SETUP_GIF_BASE64,
@@ -1064,12 +462,8 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
 
     // 添加完整路径显示
     const fullPathContainer = targetDirSetting.descEl.createDiv({ cls: 'flomo-full-path-container' });
-    fullPathContainer.style.marginTop = '8px';
-    fullPathContainer.style.fontSize = '12px';
-    fullPathContainer.style.color = 'var(--text-muted)';
     fullPathContainer.createSpan({ text: '完整路径: ', cls: 'flomo-full-path-label' });
     const fullPathEl = fullPathContainer.createSpan({ cls: 'flomo-full-path-value' });
-    fullPathEl.style.fontFamily = 'var(--font-monospace)';
     this.updateFullPathDisplay(fullPathEl, this.plugin.settings.targetDir);
 
     // 附件下载
@@ -1175,16 +569,14 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
       cls: 'mod-cta',
     });
     syncButton.disabled = this.plugin.isSyncing;
-    syncButton.addEventListener('click', async () => {
+    syncButton.addEventListener('click', () => {
       syncButton.disabled = true;
       syncButton.textContent = '同步中...';
-      try {
-        await this.plugin.performSync();
-      } finally {
+      this.plugin.performSync().finally(() => {
         syncButton.disabled = this.plugin.isSyncing;
         syncButton.textContent = this.plugin.isSyncing ? '同步中...' : '开始同步';
         this.renderCurrentTab();
-      }
+      });
     });
 
     // 全量同步
@@ -1197,16 +589,14 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
       text: this.plugin.isSyncing ? '同步中...' : '全量同步',
     });
     fullSyncButton.disabled = this.plugin.isSyncing;
-    fullSyncButton.addEventListener('click', async () => {
+    fullSyncButton.addEventListener('click', () => {
       fullSyncButton.disabled = true;
       fullSyncButton.textContent = '同步中...';
-      try {
-        await this.plugin.performFullSync();
-      } finally {
+      this.plugin.performFullSync().finally(() => {
         fullSyncButton.disabled = this.plugin.isSyncing;
         fullSyncButton.textContent = this.plugin.isSyncing ? '同步中...' : '全量同步';
         this.renderCurrentTab();
-      }
+      });
     });
 
     // 修复卡片
@@ -1226,16 +616,14 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
       text: this.plugin.isSyncing ? '修复中...' : '开始修复',
     });
     repairButton.disabled = this.plugin.isSyncing;
-    repairButton.addEventListener('click', async () => {
+    repairButton.addEventListener('click', () => {
       repairButton.disabled = true;
       repairButton.textContent = '修复中...';
-      try {
-        await this.plugin.performRepairAndCleanup();
-      } finally {
+      this.plugin.performRepairAndCleanup().finally(() => {
         repairButton.disabled = this.plugin.isSyncing;
         repairButton.textContent = this.plugin.isSyncing ? '修复中...' : '开始修复';
         this.renderCurrentTab();
-      }
+      });
     });
 
     // 危险操作卡片
@@ -1254,14 +642,10 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
           .setButtonText('重置')
           .setWarning()
           .onClick(async () => {
-            // 添加确认对话框
-            if (confirm('确定要重置同步状态吗？下次同步将从头开始获取所有记录。')) {
-              this.plugin.settings.cursor = { latest_updated_at: 0, latest_slug: '' };
-              await this.plugin.saveSettings();
-              new Notice('同步状态已重置，下次将执行全量同步');
-              // 刷新当前 Tab
-              this.renderCurrentTab();
-            }
+            this.plugin.settings.cursor = { latest_updated_at: 0, latest_slug: '' };
+            await this.plugin.saveSettings();
+            new Notice('同步状态已重置，下次将执行全量同步');
+            this.renderCurrentTab();
           })
       );
 
@@ -1274,14 +658,7 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
           .setButtonText('清除')
           .setWarning()
           .onClick(async () => {
-            if (confirm('警告：这将删除所有本地 flomo 笔记文件！确定要继续吗？')) {
-              const confirmed = prompt('请输入 "DELETE" 确认删除：') === 'DELETE';
-              if (confirmed) {
-                await this.clearLocalData();
-              } else {
-                new Notice('操作已取消');
-              }
-            }
+            await this.clearLocalData();
           })
       );
   }

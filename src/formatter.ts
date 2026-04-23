@@ -162,9 +162,9 @@ export function memoToMarkdown(
   const tagsStr = tags.length > 0 ? JSON.stringify(tags) : '[]';
 
   // 添加调试日志
-  console.log('[FlomoSync Debug] memoToMarkdown - tags input:', tags);
-  console.log('[FlomoSync Debug] memoToMarkdown - tagsStr output:', tagsStr);
-  console.log('[FlomoSync Debug] memoToMarkdown - attachmentPaths:', attachmentPaths ? Object.fromEntries(attachmentPaths) : null);
+  console.debug('[FlomoSync Debug] memoToMarkdown - tags input:', tags);
+  console.debug('[FlomoSync Debug] memoToMarkdown - tagsStr output:', tagsStr);
+  console.debug('[FlomoSync Debug] memoToMarkdown - attachmentPaths:', attachmentPaths ? Object.fromEntries(attachmentPaths) : null);
 
   // 2. 转换正文
   let body = htmlToMarkdown(memo.content || '');
@@ -175,7 +175,7 @@ export function memoToMarkdown(
   if (files.length > 0) {
     const fileLines = files.map((f) => {
       const localPath = attachmentPaths?.get(f.url);
-      console.log('[FlomoSync Debug] Processing attachment - file:', f.name, 'url:', f.url, 'localPath:', localPath);
+      console.debug('[FlomoSync Debug] Processing attachment - file:', f.name, 'url:', f.url, 'localPath:', localPath);
       return formatAttachment(f, localPath);
     });
     attachmentsSection = '\n\n**附件:**\n' + fileLines.join('\n');
@@ -193,7 +193,7 @@ source: "${memo.source || ''}"
 ${body}${attachmentsSection}
 `;
 
-  console.log('[FlomoSync Debug] memoToMarkdown - final result length:', result.length);
+  console.debug('[FlomoSync Debug] memoToMarkdown - final result length:', result.length);
   return result;
 }
 

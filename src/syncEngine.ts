@@ -4,7 +4,7 @@
  * 处理全量/增量同步、去重、落盘、游标保存
  */
 
-import { App, TAbstractFile, TFile, TFolder, Notice, Platform, requestUrl } from 'obsidian';
+import { App, TFile, TFolder } from 'obsidian';
 import { FlomoClient, FlomoApiError } from './flomoClient';
 import {
   FlomoMemo,
@@ -17,16 +17,14 @@ import { FlomoSyncSettings } from './settings';
 import {
   memoToMarkdown,
   generateFilename,
-  extractSlugFromFilename,
   parseTimestamp,
   isImage,
   isAudio,
   getExtensionFromUrl,
-  extractExifDateTime,
   extractImageIdFromUrl,
 } from './formatter';
 import { BacklinkIndex } from './backlinkIndex';
-import { rewriteFlomoLinks, BacklinkLinkStyle } from './backlinkRewriter';
+import { rewriteFlomoLinks } from './backlinkRewriter';
 
 /** 同步进度回调 */
 export interface SyncProgress {
@@ -88,7 +86,7 @@ export class SyncEngine {
   /** 日志输出 */
   private log(...args: unknown[]): void {
     if (this.debug) {
-      console.log('[FlomoSync]', ...args);
+      console.debug('[FlomoSync]', ...args);
     }
   }
 
@@ -131,7 +129,7 @@ export class SyncEngine {
     let backlinkIndex: BacklinkIndex | undefined;
     if (this.settings.enableBacklinks) {
       backlinkIndex = new BacklinkIndex(this.app, this.settings.targetDir);
-      await backlinkIndex.build();
+      backlinkIndex.build();
       this.log('Backlink index built:', backlinkIndex.size(), 'entries');
     }
 
@@ -343,7 +341,7 @@ export class SyncEngine {
     this.log('Processing memo:', slug, '->', newFilename);
 
     // 添加诊断日志：memo 关键信息
-    console.log('[FlomoSync Debug] Processing memo:', {
+    console.debug('[FlomoSync Debug] Processing memo:', {
       slug: memo.slug,
       created_at: memo.created_at,
       updated_at: memo.updated_at,
@@ -354,15 +352,15 @@ export class SyncEngine {
 
     // 0. 检查是否已在服务端删除
     if (memo.deleted_at != null && memo.deleted_at !== '') {
-      const existingFile = await this.findFileBySlug(slug, targetDir);
+      const existingFile = this.findFileBySlug(slug, targetDir);
       if (existingFile) {
         this.log('Memo deleted remotely, removing local file:', existingFile.path);
-        await this.app.vault.delete(existingFile);
+        await this.app.fileManager.trashFile(existingFile);
         await this.deleteMemoAttachments(slug);
-        console.log('[FlomoSync Debug] -> DELETED (remote deleted_at)');
+        console.debug('[FlomoSync Debug] -> DELETED (remote deleted_at)');
         return 'deleted';
       }
-      console.log('[FlomoSync Debug] -> SKIPPED (remote deleted, no local file)');
+      console.debug('[FlomoSync Debug] -> SKIPPED (remote deleted, no local file)');
       return 'skipped';
     }
 
@@ -386,7 +384,7 @@ export class SyncEngine {
     }
 
     // 添加诊断日志：附件路径映射
-    console.log('[FlomoSync Debug] Attachment paths:', Object.fromEntries(attachmentPaths));
+    console.debug('[FlomoSync Debug] Attachment paths:', Object.fromEntries(attachmentPaths));
 
     // 2. 生成 Markdown 内容
     let content = memoToMarkdown(memo, attachmentPaths);
@@ -397,10 +395,10 @@ export class SyncEngine {
     }
 
     // 添加诊断日志：生成内容的前200字符
-    console.log('[FlomoSync Debug] Generated content (first 200 chars):', content.slice(0, 200));
+    console.debug('[FlomoSync Debug] Generated content (first 200 chars):', content.slice(0, 200));
 
     // 3. 检查是否已存在同 slug 的文件
-    const existingFile = await this.findFileBySlug(slug, targetDir);
+    const existingFile = this.findFileBySlug(slug, targetDir);
 
     if (existingFile) {
       // 3a. 文件已存在
@@ -409,17 +407,17 @@ export class SyncEngine {
 
       if (existingContent === content) {
         // 内容完全相同，跳过
-        console.log('[FlomoSync Debug] -> SKIPPED (content identical)');
+        console.debug('[FlomoSync Debug] -> SKIPPED (content identical)');
         return 'skipped';
       }
 
       // 内容不同，需要更新
-      console.log('[FlomoSync Debug] -> UPDATED (content different)');
-      console.log('[FlomoSync Debug] Filename check - existing:', existingFile.name, 'new:', newFilename);
+      console.debug('[FlomoSync Debug] -> UPDATED (content different)');
+      console.debug('[FlomoSync Debug] Filename check - existing:', existingFile.name, 'new:', newFilename);
 
       if (existingFile.name !== newFilename) {
         // 文件名变化，先删除旧文件
-        await this.app.vault.delete(existingFile);
+        await this.app.fileManager.trashFile(existingFile);
         await this.app.vault.create(newPath, content);
       } else {
         // 文件名相同，直接修改
@@ -428,7 +426,7 @@ export class SyncEngine {
       return 'updated';
     } else {
       // 3b. 新文件
-      console.log('[FlomoSync Debug] -> CREATED (file not found for slug:', slug, ')');
+      console.debug('[FlomoSync Debug] -> CREATED (file not found for slug:', slug, ')');
       await this.app.vault.create(newPath, content);
       return 'created';
     }
@@ -441,10 +439,10 @@ export class SyncEngine {
    * @param dir - 搜索目录
    * @returns 文件或 null
    */
-  private async findFileBySlug(
+  private findFileBySlug(
     slug: string,
     dir: TFolder
-  ): Promise<TFile | null> {
+  ): TFile | null {
     const pattern = new RegExp(`_${slug}\\.md$`);
 
     for (const child of dir.children) {
@@ -503,16 +501,16 @@ export class SyncEngine {
     const url = file.url;
     const filename = file.name || 'unnamed';
 
-    console.log('[FlomoSync Debug] downloadAttachment - filename:', filename, 'url:', url);
+    console.debug('[FlomoSync Debug] downloadAttachment - filename:', filename, 'url:', url);
 
     // 检查是否支持的格式
     const isImg = isImage(filename) || isImage(url);
     const isAud = isAudio(filename) || isAudio(url);
 
-    console.log('[FlomoSync Debug] downloadAttachment - isImg:', isImg, 'isAud:', isAud);
+    console.debug('[FlomoSync Debug] downloadAttachment - isImg:', isImg, 'isAud:', isAud);
 
     if (!isImg && !isAud) {
-      console.log('[FlomoSync Debug] downloadAttachment - unsupported format, skipping');
+      console.debug('[FlomoSync Debug] downloadAttachment - unsupported format, skipping');
       return null;
     }
 

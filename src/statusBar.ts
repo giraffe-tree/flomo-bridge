@@ -4,7 +4,7 @@
  * 显示最近同步时间/进度
  */
 
-import { Plugin, moment, TFile, Menu, Notice, setIcon, Modal, App } from 'obsidian';
+import { Plugin, moment, Menu, Notice, setIcon, Modal, App } from 'obsidian';
 import type FlomoSyncPlugin from '../main';
 import type { SyncStatus, ErrorDetails } from './types';
 import { getTooltipManager } from './tooltip';
@@ -65,7 +65,7 @@ class ErrorDetailModal extends Modal {
       cls: 'mod-cta',
     }).addEventListener('click', () => {
       this.close();
-      this.plugin.performSync();
+      void this.plugin.performSync();
     });
 
     // 查看设置按钮
@@ -127,7 +127,7 @@ export class StatusBarManager {
 
   constructor(plugin: FlomoSyncPlugin) {
     this.plugin = plugin;
-    this.statusBarEl = plugin.addStatusBarItem() as StatusBarItemElement;
+    this.statusBarEl = plugin.addStatusBarItem();
     this.registerClickHandler();
     this.updateDisplay();
   }
@@ -144,7 +144,7 @@ export class StatusBarManager {
           new ErrorDetailModal(this.plugin.app, this.lastError, this.plugin).open();
         } else {
           // 其他状态 - 快速同步
-          this.plugin.performSync();
+          void this.plugin.performSync();
         }
       } else if (evt.button === 2) {
         // 右键 - 显示菜单
@@ -252,7 +252,7 @@ export class StatusBarManager {
       const { processedCount, stats, newContentStats } = this.currentProgress;
 
       // 主数字：大号实时处理数量
-      const countEl = container.createSpan({
+      container.createSpan({
         cls: 'flomo-sync-count',
         text: String(processedCount),
       });
@@ -435,7 +435,7 @@ export class StatusBarManager {
         .setTitle('立即同步')
         .setIcon('sync')
         .onClick(() => {
-          this.plugin.performSync();
+          void this.plugin.performSync();
         })
     );
 
@@ -444,7 +444,7 @@ export class StatusBarManager {
         .setTitle('全量同步')
         .setIcon('refresh-cw')
         .onClick(() => {
-          this.plugin.performFullSync();
+          void this.plugin.performFullSync();
         })
     );
 
@@ -500,374 +500,8 @@ export class StatusBarManager {
 }
 
 /**
- * 添加 CSS 样式
+ * 添加 CSS 样式（样式已迁移至 styles.css）
  */
-export function addStatusBarStyles(plugin: Plugin): void {
-  const style = document.createElement('style');
-  style.id = 'flomo-sync-status-styles';
-  style.textContent = `
-    .flomo-sync-status {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      transition: background-color 0.2s;
-    }
-
-    .flomo-sync-status:hover {
-      background-color: var(--background-modifier-hover);
-    }
-
-    .flomo-tooltip {
-      position: fixed;
-      z-index: 10000;
-      max-width: 420px;
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      line-height: 1.4;
-      color: var(--text-normal);
-      background: var(--background-primary);
-      border: 1px solid var(--background-modifier-border);
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
-      pointer-events: none;
-      opacity: 0;
-      transform: translateY(2px);
-      transition: opacity 0.12s ease, transform 0.12s ease;
-      white-space: nowrap;
-    }
-
-    .flomo-tooltip.is-visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .flomo-sync-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 14px;
-      height: 14px;
-    }
-
-    .flomo-sync-icon svg {
-      width: 14px;
-      height: 14px;
-      stroke-width: 2;
-    }
-
-    .flomo-sync-text {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .flomo-sync-active .flomo-sync-icon svg {
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-
-    /* 实时同步数字样式 */
-    .flomo-sync-count {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-normal);
-      font-variant-numeric: tabular-nums;
-      font-family: var(--font-monospace);
-      margin-right: 6px;
-    }
-
-    .flomo-sync-stats {
-      display: inline-flex;
-      gap: 6px;
-      font-size: 11px;
-    }
-
-    .flomo-sync-stats .stat-created {
-      color: var(--text-success, #2ea043);
-      font-weight: 500;
-    }
-
-    .flomo-sync-stats .stat-updated {
-      color: var(--text-accent, #58a6ff);
-      font-weight: 500;
-    }
-
-    .flomo-sync-stats .stat-skipped {
-      color: var(--text-muted);
-    }
-
-    /* 设置面板统计卡片样式 */
-    .flomo-stats-title {
-      margin-top: 16px;
-      margin-bottom: 8px;
-      font-size: 14px;
-      color: var(--text-normal);
-    }
-
-    .flomo-stats-container {
-      background: var(--background-secondary);
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 16px;
-    }
-
-    .flomo-stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-
-    .flomo-stats-item {
-      text-align: center;
-      padding: 8px;
-      border-radius: 6px;
-      background: var(--background-primary);
-    }
-
-    .flomo-stats-value {
-      font-size: 20px;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-      font-family: var(--font-monospace);
-      line-height: 1.2;
-    }
-
-    .flomo-stats-label {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
-
-    .flomo-stats-created .flomo-stats-value {
-      color: var(--text-success, #2ea043);
-    }
-
-    .flomo-stats-updated .flomo-stats-value {
-      color: var(--text-accent, #58a6ff);
-    }
-
-    .flomo-stats-skipped .flomo-stats-value {
-      color: var(--text-muted);
-    }
-
-    .flomo-stats-failed .flomo-stats-value {
-      color: var(--text-error, #f85149);
-    }
-
-    .flomo-stats-header {
-      text-align: center;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--background-modifier-border);
-      margin-bottom: 12px;
-    }
-
-    .flomo-stats-header .flomo-stats-time {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .flomo-stats-footer {
-      text-align: center;
-      padding-top: 8px;
-      border-top: 1px solid var(--background-modifier-border);
-    }
-
-    .flomo-stats-summary {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    /* 设置面板贡献热力图 */
-    .flomo-heatmap-title {
-      margin-top: 12px;
-      margin-bottom: 8px;
-      font-size: 14px;
-      color: var(--text-normal);
-    }
-
-    .flomo-heatmap-container {
-      background: var(--background-secondary);
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 16px;
-      overflow-x: auto;
-    }
-
-    .flomo-heatmap-empty {
-      font-size: 12px;
-      color: var(--text-muted);
-      text-align: center;
-      padding: 8px 0;
-    }
-
-    .flomo-heatmap-months {
-      display: grid;
-      grid-template-columns: 1fr;
-      align-items: end;
-      margin-bottom: 6px;
-    }
-
-    .flomo-heatmap-month-grid {
-      display: grid;
-      grid-template-columns: repeat(53, minmax(6px, 1fr));
-      gap: 2px;
-      min-width: 400px;
-    }
-
-    .flomo-heatmap-month-cell {
-      min-height: 14px;
-      font-size: 10px;
-      color: var(--text-muted);
-      line-height: 1;
-    }
-
-    .flomo-heatmap-body {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 6px;
-      align-items: start;
-    }
-
-    .flomo-heatmap-grid {
-      display: grid;
-      grid-template-columns: repeat(53, minmax(6px, 1fr));
-      gap: 2px;
-      min-width: 400px;
-    }
-
-    .flomo-heatmap-week {
-      display: grid;
-      grid-template-rows: repeat(7, 8px);
-      gap: 2px;
-    }
-
-    .flomo-heatmap-cell {
-      width: 8px;
-      height: 8px;
-      border-radius: 1.5px;
-      background: var(--background-modifier-border);
-    }
-
-    .flomo-heatmap-level-0 { background: var(--background-modifier-border); }
-    .flomo-heatmap-level-1 { background: color-mix(in srgb, var(--text-success) 10%, transparent); }
-    .flomo-heatmap-level-2 { background: color-mix(in srgb, var(--text-success) 20%, transparent); }
-    .flomo-heatmap-level-3 { background: color-mix(in srgb, var(--text-success) 30%, transparent); }
-    .flomo-heatmap-level-4 { background: color-mix(in srgb, var(--text-success) 40%, transparent); }
-    .flomo-heatmap-level-5 { background: color-mix(in srgb, var(--text-success) 50%, transparent); }
-    .flomo-heatmap-level-6 { background: color-mix(in srgb, var(--text-success) 60%, transparent); }
-    .flomo-heatmap-level-7 { background: color-mix(in srgb, var(--text-success) 70%, transparent); }
-    .flomo-heatmap-level-8 { background: color-mix(in srgb, var(--text-success) 85%, transparent); }
-    .flomo-heatmap-level-9 { background: color-mix(in srgb, var(--text-success) 100%, transparent); }
-
-    .flomo-heatmap-legend {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 4px;
-      margin-top: 10px;
-    }
-
-    .flomo-heatmap-legend-text {
-      font-size: 10px;
-      color: var(--text-muted);
-    }
-
-    /* 错误详情弹窗样式 */
-    .flomo-error-modal-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--background-modifier-border);
-    }
-
-    .flomo-error-modal-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-error, #f85149);
-    }
-
-    .flomo-error-modal-icon svg {
-      width: 24px;
-      height: 24px;
-      stroke-width: 2;
-    }
-
-    .flomo-error-modal-title {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--text-normal);
-    }
-
-    .flomo-error-modal-details {
-      margin-bottom: 20px;
-    }
-
-    .flomo-error-modal-row {
-      margin-bottom: 12px;
-      line-height: 1.5;
-    }
-
-    .flomo-error-modal-label {
-      color: var(--text-muted);
-      font-size: 13px;
-    }
-
-    .flomo-error-modal-code {
-      font-family: var(--font-monospace);
-      font-size: 13px;
-      color: var(--text-error, #f85149);
-      font-weight: 500;
-    }
-
-    .flomo-error-modal-message {
-      font-size: 14px;
-      color: var(--text-normal);
-    }
-
-    .flomo-error-modal-time {
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px dashed var(--background-modifier-border);
-    }
-
-    .flomo-error-modal-time-text {
-      font-size: 12px;
-      color: var(--text-faint);
-    }
-
-    .flomo-error-modal-buttons {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .flomo-error-modal-buttons button {
-      flex: 1;
-    }
-
-    .flomo-error-modal-hint {
-      text-align: center;
-    }
-
-    .flomo-error-modal-hint-text {
-      color: var(--text-faint);
-      font-size: 11px;
-    }
-  `;
-  document.head.appendChild(style);
-
-  // 注册卸载时清理
-  plugin.register(() => {
-    style.remove();
-  });
+export function addStatusBarStyles(_plugin: Plugin): void {
+  // 样式由 Obsidian 自动从 styles.css 加载
 }

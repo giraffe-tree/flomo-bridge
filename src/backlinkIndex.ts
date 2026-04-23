@@ -26,7 +26,7 @@ export class BacklinkIndex {
   /**
    * 扫描目标目录，构建索引
    */
-  async build(): Promise<void> {
+  build(): void {
     this.index.clear();
 
     const allFiles = this.app.vault.getMarkdownFiles();

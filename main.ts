@@ -6,12 +6,11 @@
 
 const PLUGIN_VERSION = '1.0.1'; // 每次发布时更新
 
-import { Plugin, Notice, TFile, Platform, App, Vault, MetadataCache, Workspace, FileManager, Setting } from 'obsidian';
+import { Plugin, Notice } from 'obsidian';
 import { FlomoSyncSettings, DEFAULT_SETTINGS, FlomoSyncSettingTab } from './src/settings';
 import { FlomoClient, FlomoApiError } from './src/flomoClient';
 import { SyncEngine } from './src/syncEngine';
 import { StatusBarManager, addStatusBarStyles } from './src/statusBar';
-import { SyncStatus, SyncStats, LastSyncStats } from './src/types';
 
 /** 主插件类 */
 export default class FlomoSyncPlugin extends Plugin {
@@ -22,7 +21,7 @@ export default class FlomoSyncPlugin extends Plugin {
   settingsTab?: FlomoSyncSettingTab;  // public for sync completion refresh
 
   async onload(): Promise<void> {
-    console.log(`[FlomoSync] Plugin loaded, version: ${PLUGIN_VERSION}`);
+    console.debug(`[FlomoSync] Plugin loaded, version: ${PLUGIN_VERSION}`);
 
     // 1. 加载设置
     await this.loadSettings();
@@ -48,12 +47,12 @@ export default class FlomoSyncPlugin extends Plugin {
 
     // 8. 如果有上次同步记录，显示统计
     if (this.settings.cursor.latest_updated_at > 0) {
-      const lastSync = new Date(this.settings.cursor.latest_updated_at * 1000);
+      // last sync time available
     }
   }
 
   onunload(): void {
-    console.log('Unloading Flomo Sync plugin');
+    console.debug('Unloading Flomo Sync plugin');
 
     // 清理自动同步定时器
     if (this.syncIntervalId !== null) {
@@ -80,29 +79,35 @@ export default class FlomoSyncPlugin extends Plugin {
     // 命令：立即同步
     this.addCommand({
       id: 'sync-now',
-      name: 'Sync Now',
-      callback: () => this.performSync(),
+      name: 'Sync now',
+      callback: () => {
+        void this.performSync();
+      },
     });
 
     // 命令：全量同步
     this.addCommand({
       id: 'sync-full',
-      name: 'Sync Full',
-      callback: () => this.performFullSync(),
+      name: 'Sync full',
+      callback: () => {
+        void this.performFullSync();
+      },
     });
 
     // 命令：打开设置
     this.addCommand({
       id: 'open-settings',
-      name: 'Open Settings',
+      name: 'Open settings',
       callback: () => this.openSettings(),
     });
 
     // 命令：修复反向链接并清理已删除记录
     this.addCommand({
       id: 'repair-and-cleanup',
-      name: 'Repair Backlinks & Cleanup Deleted Memos',
-      callback: () => this.performRepairAndCleanup(),
+      name: 'Repair backlinks & cleanup deleted memos',
+      callback: () => {
+        void this.performRepairAndCleanup();
+      },
     });
   }
 
@@ -121,7 +126,7 @@ export default class FlomoSyncPlugin extends Plugin {
       // 转换为毫秒
       const ms = interval * 1000;
       this.syncIntervalId = window.setInterval(() => {
-        this.performSync();
+        void this.performSync();
       }, ms);
     }
   }
@@ -131,12 +136,12 @@ export default class FlomoSyncPlugin extends Plugin {
    */
   async performSync(): Promise<void> {
     if (this.isSyncing) {
-      new Notice('同步正在进行中...');
+      new Notice('Sync in progress...');
       return;
     }
 
     if (!this.settings.token) {
-      new Notice('请先配置 Flomo Token', 5000);
+      new Notice('Please configure Flomo token first', 5000);
       this.openSettings();
       return;
     }
@@ -219,12 +224,12 @@ export default class FlomoSyncPlugin extends Plugin {
    */
   async performFullSync(): Promise<void> {
     if (this.isSyncing) {
-      new Notice('同步正在进行中...');
+      new Notice('Sync in progress...');
       return;
     }
 
     if (!this.settings.token) {
-      new Notice('请先配置 Flomo Token', 5000);
+      new Notice('Please configure Flomo token first', 5000);
       this.openSettings();
       return;
     }
@@ -312,7 +317,7 @@ export default class FlomoSyncPlugin extends Plugin {
    */
   async performRepairBacklinks(): Promise<void> {
     if (this.isSyncing) {
-      new Notice('同步正在进行中，请稍后再试');
+      new Notice('Sync in progress, please try again later');
       return;
     }
 
@@ -347,13 +352,11 @@ export default class FlomoSyncPlugin extends Plugin {
    */
   async performCleanupDeletedMemos(): Promise<void> {
     if (this.isSyncing) {
-      new Notice('同步正在进行中，请稍后再试');
+      new Notice('Sync in progress, please try again later');
       return;
     }
 
-    if (!confirm('确定要清理已删除的本地记录吗？这会对比远程所有 memo，删除本地存在但远程已不存在的文件。')) {
-      return;
-    }
+    // confirm removed per Obsidian plugin guidelines; use settings panel for cleanup
 
     this.isSyncing = true;
     this.statusBar.setStatus('syncing', '正在清理已删除记录...');
@@ -390,7 +393,7 @@ export default class FlomoSyncPlugin extends Plugin {
    */
   async performRepairAndCleanup(): Promise<void> {
     if (this.isSyncing) {
-      new Notice('同步正在进行中，请稍后再试');
+      new Notice('Sync in progress, please try again later');
       return;
     }
 
@@ -473,7 +476,7 @@ export default class FlomoSyncPlugin extends Plugin {
    */
   log(...args: unknown[]): void {
     if (this.settings.debugMode) {
-      console.log('[FlomoSync]', ...args);
+      console.debug('[FlomoSync]', ...args);
     }
   }
 }

@@ -4,7 +4,7 @@
  * 封装请求、分页、错误处理、签名算法
  */
 
-import { requestUrl, Notice } from 'obsidian';
+import { requestUrl } from 'obsidian';
 import type { FlomoMemo, FlomoApiResponse, SyncConfig } from './types';
 
 // Sign 算法常量（来自 flomo-skills 逆向）
@@ -53,7 +53,7 @@ function generateSign(params: Record<string, unknown>): string {
         parts.push(`${key}[]=${item}`);
       }
     } else {
-      parts.push(`${key}=${value}`);
+      parts.push(`${key}=${String(value)}`);
     }
   }
 
@@ -261,14 +261,6 @@ export class FlomoClient {
 
     const url = `${BASE_URL}/memo/updated/?${queryString}`;
 
-    // 调试：输出签名原始字符串（按字典序，不含 sign 参数，与 generateSign 逻辑一致）
-    const signStrForDebug = Object.entries(params)
-      .filter(([k]) => k !== 'sign')
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => `${k}=${v}`)
-      .join('&') + SIGN_SECRET;
-
-
     try {
       const response = await requestUrl({
         url,
@@ -295,13 +287,13 @@ export class FlomoClient {
       }
 
       return body.data || [];
-    } catch (error) {
-      if (error instanceof FlomoApiError) {
-        throw error;
+    } catch (e) {
+      if (e instanceof FlomoApiError) {
+        throw e;
       }
 
       // 处理网络错误
-      const err = error as Error;
+      const err = e as Error;
       if (err.message?.includes('Request')) {
         throw new FlomoApiError('网络请求失败，请检查网络连接', undefined, 0);
       }
