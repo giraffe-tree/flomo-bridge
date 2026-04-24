@@ -203,8 +203,7 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
 
     // 状态卡片组
     const statusCard = container.createDiv({ cls: 'flomo-settings-card' });
-    const statusHeader = statusCard.createDiv({ cls: 'flomo-settings-card-header' });
-    statusHeader.createEl('h3', { text: '同步状态' });
+    new Setting(statusCard).setName('同步状态').setHeading();
 
     const statusGrid = statusCard.createDiv({ cls: 'flomo-status-grid' });
 
@@ -278,14 +277,8 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
     // 同步历史统计卡片（从原 renderDataTab 移入）
     if (lastStats) {
       const statsCard = container.createDiv({ cls: 'flomo-settings-card' });
-      const statsHeader = statsCard.createDiv({ cls: 'flomo-settings-card-header' });
-      const statsIcon = statsHeader.createSpan();
-      setIcon(statsIcon, 'pie-chart');
-
       const hasNewContentStats = lastStats.newContent && lastStats.newContent.total > 0;
-      statsHeader.createEl('h3', {
-        text: hasNewContentStats ? '上次同步统计（真正新增）' : '上次同步统计'
-      });
+      new Setting(statsCard).setName(hasNewContentStats ? '上次同步统计（真正新增）' : '上次同步统计').setHeading();
 
       const statsGrid = statsCard.createDiv({ cls: 'flomo-stats-grid-detailed' });
 
@@ -339,10 +332,7 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
   private renderConfigTab(container: HTMLElement): void {
     // 连接配置卡片
     const connectionCard = container.createDiv({ cls: 'flomo-settings-card' });
-    const connectionHeader = connectionCard.createDiv({ cls: 'flomo-settings-card-header' });
-    const connectionIcon = connectionHeader.createSpan();
-    setIcon(connectionIcon, 'link');
-    connectionHeader.createEl('h3', { text: '连接配置' });
+    new Setting(connectionCard).setName('连接配置').setHeading();
 
     // Token 设置
     new Setting(connectionCard)
@@ -438,10 +428,7 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
 
     // 同步配置卡片
     const syncCard = container.createDiv({ cls: 'flomo-settings-card' });
-    const syncHeader = syncCard.createDiv({ cls: 'flomo-settings-card-header' });
-    const syncIcon = syncHeader.createSpan();
-    setIcon(syncIcon, 'folder-sync');
-    syncHeader.createEl('h3', { text: '同步配置' });
+    new Setting(syncCard).setName('同步配置').setHeading();
 
     // 目标目录
     const targetDirSetting = new Setting(syncCard)
@@ -504,10 +491,7 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
 
     // 反向链接设置卡片
     const backlinkCard = container.createDiv({ cls: 'flomo-settings-card' });
-    const backlinkHeader = backlinkCard.createDiv({ cls: 'flomo-settings-card-header' });
-    const backlinkIcon = backlinkHeader.createSpan();
-    setIcon(backlinkIcon, 'link');
-    backlinkHeader.createEl('h3', { text: '反向链接' });
+    new Setting(backlinkCard).setName('反向链接').setHeading();
 
     // 启用反向链接转换
     new Setting(backlinkCard)
@@ -526,10 +510,7 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
 
     // 开发者选项卡片（默认折叠）
     const devCard = container.createDiv({ cls: 'flomo-settings-card' });
-    const devHeader = devCard.createDiv({ cls: 'flomo-settings-card-header' });
-    const devIcon = devHeader.createSpan();
-    setIcon(devIcon, 'code');
-    devHeader.createEl('h3', { text: '开发者选项' });
+    new Setting(devCard).setName('开发者选项').setHeading();
 
     // 调试模式
     new Setting(devCard)
@@ -551,87 +532,75 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
   private renderActionTab(container: HTMLElement): void {
     // 常规操作卡片
     const actionCard = container.createDiv({ cls: 'flomo-settings-card' });
-    const actionHeader = actionCard.createDiv({ cls: 'flomo-settings-card-header' });
-    const actionIcon = actionHeader.createSpan();
-    setIcon(actionIcon, 'zap');
-    actionHeader.createEl('h3', { text: '同步操作' });
-
-    const buttonsContainer = actionCard.createDiv({ cls: 'flomo-action-buttons' });
+    new Setting(actionCard).setName('同步操作').setHeading();
 
     // 立即同步
-    const syncRow = buttonsContainer.createDiv({ cls: 'flomo-action-row' });
-    const syncInfo = syncRow.createDiv({ cls: 'flomo-action-info' });
-    syncInfo.createEl('h4', { text: '立即同步' });
-    syncInfo.createEl('p', { text: '执行增量同步，只获取新增和更新的内容' });
-
-    const syncButton = syncRow.createEl('button', {
-      text: this.plugin.isSyncing ? '同步中...' : '开始同步',
-      cls: 'mod-cta',
-    });
-    syncButton.disabled = this.plugin.isSyncing;
-    syncButton.addEventListener('click', () => {
-      syncButton.disabled = true;
-      syncButton.textContent = '同步中...';
-      this.plugin.performSync().finally(() => {
-        syncButton.disabled = this.plugin.isSyncing;
-        syncButton.textContent = this.plugin.isSyncing ? '同步中...' : '开始同步';
-        this.renderCurrentTab();
-      });
-    });
+    new Setting(actionCard)
+      .setName('立即同步')
+      .setDesc('执行增量同步，只获取新增和更新的内容')
+      .addButton((button) =>
+        button
+          .setButtonText(this.plugin.isSyncing ? '同步中...' : '开始同步')
+          .setCta()
+          .setDisabled(this.plugin.isSyncing)
+          .onClick(async () => {
+            button.setButtonText('同步中...').setDisabled(true);
+            try {
+              await this.plugin.performSync();
+            } finally {
+              button.setDisabled(this.plugin.isSyncing);
+              button.setButtonText(this.plugin.isSyncing ? '同步中...' : '开始同步');
+              this.renderCurrentTab();
+            }
+          })
+      );
 
     // 全量同步
-    const fullSyncRow = buttonsContainer.createDiv({ cls: 'flomo-action-row' });
-    const fullSyncInfo = fullSyncRow.createDiv({ cls: 'flomo-action-info' });
-    fullSyncInfo.createEl('h4', { text: '全量同步' });
-    fullSyncInfo.createEl('p', { text: '重置游标并重新同步所有笔记（会更新已存在的文件）' });
-
-    const fullSyncButton = fullSyncRow.createEl('button', {
-      text: this.plugin.isSyncing ? '同步中...' : '全量同步',
-    });
-    fullSyncButton.disabled = this.plugin.isSyncing;
-    fullSyncButton.addEventListener('click', () => {
-      fullSyncButton.disabled = true;
-      fullSyncButton.textContent = '同步中...';
-      this.plugin.performFullSync().finally(() => {
-        fullSyncButton.disabled = this.plugin.isSyncing;
-        fullSyncButton.textContent = this.plugin.isSyncing ? '同步中...' : '全量同步';
-        this.renderCurrentTab();
-      });
-    });
+    new Setting(actionCard)
+      .setName('全量同步')
+      .setDesc('重置游标并重新同步所有笔记（会更新已存在的文件）')
+      .addButton((button) =>
+        button
+          .setButtonText(this.plugin.isSyncing ? '同步中...' : '全量同步')
+          .setDisabled(this.plugin.isSyncing)
+          .onClick(async () => {
+            button.setButtonText('同步中...').setDisabled(true);
+            try {
+              await this.plugin.performFullSync();
+            } finally {
+              button.setDisabled(this.plugin.isSyncing);
+              button.setButtonText(this.plugin.isSyncing ? '同步中...' : '全量同步');
+              this.renderCurrentTab();
+            }
+          })
+      );
 
     // 修复卡片
     const repairCard = container.createDiv({ cls: 'flomo-settings-card' });
-    const repairHeader = repairCard.createDiv({ cls: 'flomo-settings-card-header' });
-    const repairIcon = repairHeader.createSpan();
-    setIcon(repairIcon, 'refresh-cw');
-    repairHeader.createEl('h3', { text: '修复' });
+    new Setting(repairCard).setName('修复').setHeading();
 
-    const repairButtonsContainer = repairCard.createDiv({ cls: 'flomo-action-buttons' });
-    const repairRow = repairButtonsContainer.createDiv({ cls: 'flomo-action-row' });
-    const repairInfo = repairRow.createDiv({ cls: 'flomo-action-info' });
-    repairInfo.createEl('h4', { text: '修复' });
-    repairInfo.createEl('p', { text: '将 flomo 链接替换为 Obsidian 反向链接，并删除本地已被服务端移除的文件' });
-
-    const repairButton = repairRow.createEl('button', {
-      text: this.plugin.isSyncing ? '修复中...' : '开始修复',
-    });
-    repairButton.disabled = this.plugin.isSyncing;
-    repairButton.addEventListener('click', () => {
-      repairButton.disabled = true;
-      repairButton.textContent = '修复中...';
-      this.plugin.performRepairAndCleanup().finally(() => {
-        repairButton.disabled = this.plugin.isSyncing;
-        repairButton.textContent = this.plugin.isSyncing ? '修复中...' : '开始修复';
-        this.renderCurrentTab();
-      });
-    });
+    new Setting(repairCard)
+      .setName('修复反向链接与清理')
+      .setDesc('将 flomo 链接替换为 Obsidian 反向链接，并删除本地已被服务端移除的文件')
+      .addButton((button) =>
+        button
+          .setButtonText(this.plugin.isSyncing ? '修复中...' : '开始修复')
+          .setDisabled(this.plugin.isSyncing)
+          .onClick(async () => {
+            button.setButtonText('修复中...').setDisabled(true);
+            try {
+              await this.plugin.performRepairAndCleanup();
+            } finally {
+              button.setDisabled(this.plugin.isSyncing);
+              button.setButtonText(this.plugin.isSyncing ? '修复中...' : '开始修复');
+              this.renderCurrentTab();
+            }
+          })
+      );
 
     // 危险操作卡片
     const dangerCard = container.createDiv({ cls: 'flomo-settings-card danger' });
-    const dangerHeader = dangerCard.createDiv({ cls: 'flomo-settings-card-header' });
-    const dangerIcon = dangerHeader.createSpan();
-    setIcon(dangerIcon, 'alert-triangle');
-    dangerHeader.createEl('h3', { text: '危险区域' });
+    new Setting(dangerCard).setName('危险区域').setHeading();
 
     // 重置同步状态
     new Setting(dangerCard)
@@ -682,7 +651,7 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
       );
 
       for (const file of files) {
-        await this.app.vault.delete(file);
+        await this.app.fileManager.trashFile(file);
       }
 
       new Notice('本地数据已清除');
@@ -697,16 +666,11 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
   private renderContributionHeatmap(containerEl: HTMLElement): void {
     const tooltipManager = getTooltipManager();
     const heatmapCard = containerEl.createDiv({ cls: 'flomo-settings-card' });
-    const heatmapHeader = heatmapCard.createDiv({ cls: 'flomo-settings-card-header' });
-    const heatmapIcon = heatmapHeader.createSpan();
-    setIcon(heatmapIcon, 'calendar');
-    heatmapHeader.createEl('h3', { text: '记录活跃度（最近一年）' });
-
-    // 添加统计信息到标题行右侧
     const dailyCounts = this.collectDailyMemoCounts();
     const totalCount = this.getLocalMemoCount();
     const lastYearCount = this.calculateLastYearCount(dailyCounts);
-    const statsEl = heatmapHeader.createDiv({ cls: 'flomo-heatmap-header-stats' });
+    const heatmapHeading = new Setting(heatmapCard).setName('记录活跃度（最近一年）').setHeading();
+    const statsEl = heatmapHeading.controlEl.createDiv({ cls: 'flomo-heatmap-header-stats' });
     statsEl.createSpan({ text: `最近一年: ${lastYearCount} 条`, cls: 'flomo-heatmap-stat-item' });
     statsEl.createSpan({ text: ' | ', cls: 'flomo-heatmap-stat-separator' });
     statsEl.createSpan({ text: `总计: ${totalCount} 条`, cls: 'flomo-heatmap-stat-item' });

@@ -483,7 +483,7 @@ export class SyncEngine {
 
     for (const file of filesToDelete) {
       this.log('Deleting attachment:', file.path);
-      await this.app.vault.delete(file);
+      await this.app.fileManager.trashFile(file);
     }
   }
 
@@ -655,7 +655,7 @@ export class SyncEngine {
       if (slug && (!inRemote || isDeleted)) {
         const reason = isDeleted ? 'remote deleted' : 'not in remote';
         this.log('[Cleanup] DELETING local memo (' + reason + '):', file.path, 'slug:', slug);
-        await this.app.vault.delete(file);
+        await this.app.fileManager.trashFile(file);
         await this.deleteMemoAttachments(slug);
         deleted++;
       } else {

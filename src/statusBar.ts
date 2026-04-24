@@ -31,7 +31,7 @@ class ErrorDetailModal extends Modal {
     const headerEl = contentEl.createDiv({ cls: 'flomo-error-modal-header' });
     const iconEl = headerEl.createSpan({ cls: 'flomo-error-modal-icon' });
     setIcon(iconEl, 'alert-circle');
-    headerEl.createEl('h2', { text: '同步失败', cls: 'flomo-error-modal-title' });
+    headerEl.createEl('strong', { text: '同步失败', cls: 'flomo-error-modal-title' });
 
     // 错误详情区域
     const detailsEl = contentEl.createDiv({ cls: 'flomo-error-modal-details' });
