@@ -94,7 +94,7 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
     this.addSettingsStyles(containerEl);
 
     // 标题
-    new Setting(containerEl).setName('Flomo Bridge 设置').setHeading();
+    new Setting(containerEl).setName('设置').setHeading();
 
     // 渲染 Tab 导航
     this.renderTabNav(containerEl);
@@ -336,8 +336,8 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
 
     // Token 设置
     new Setting(connectionCard)
-      .setName('Flomo Token')
-      .setDesc('用于访问 flomo API，可直接粘贴 Authorization 中的 token。')
+      .setName('Flomo token')
+      .setDesc('用于访问 flomo API，可直接粘贴 authorization 中的 token。')
       .addText((text) =>
         text
           .setPlaceholder('Bearer 1023456|... 或直接粘贴 token')
@@ -433,10 +433,10 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
     // 目标目录
     const targetDirSetting = new Setting(syncCard)
       .setName('同步目标目录')
-      .setDesc('相对于 Vault 根目录的路径，flomo 笔记将同步到此目录')
+      .setDesc('相对于 vault 根目录的路径，flomo 笔记将同步到此目录')
       .addText((text) =>
         text
-          .setPlaceholder('flomo')
+          .setPlaceholder('Flomo')
           .setValue(this.plugin.settings.targetDir)
           .onChange(async (value) => {
             const newValue = value.trim() || 'flomo';
@@ -882,7 +882,7 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
   private async validateToken(button: import('obsidian').ButtonComponent): Promise<void> {
     const token = this.plugin.settings.token;
     if (!token) {
-      new Notice('请先输入 Token');
+      new Notice('请先输入 token');
       return;
     }
 
@@ -911,7 +911,7 @@ export class FlomoSyncSettingTab extends PluginSettingTab {
         this.renderCurrentTab();
       }
 
-      new Notice('✅ Token 有效', 3000);
+      new Notice('✅ token 有效', 3000);
     } catch (error) {
       this.plugin.log('Token validation error:', error);
 

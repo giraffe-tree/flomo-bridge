@@ -33,27 +33,20 @@ export class FlomoApiError extends Error {
  * 3. 列表类型：key[]=value，value 排序
  * 4. 追加 secret 后取 MD5
  */
-function generateSign(params: Record<string, unknown>): string {
+function generateSign(params: Record<string, string | string[]>): string {
   // 按 key 字典序排序（签名算法要求）
   const sortedKeys = Object.keys(params).sort();
   const parts: string[] = [];
 
   for (const key of sortedKeys) {
     const value = params[key];
-    // 跳过 null/undefined/空字符串；保留 false 和 0
-    if (value === null || value === undefined || value === '') continue;
-
     if (Array.isArray(value)) {
-      // 过滤 falsy 但保留 0，然后排序
-      const filtered = value
-        .filter(x => x || x === 0)
-        .map(x => String(x))
-        .sort();
+      const filtered = value.filter(x => x !== '').sort();
       for (const item of filtered) {
         parts.push(`${key}[]=${item}`);
       }
-    } else {
-      parts.push(`${key}=${String(value)}`);
+    } else if (value !== '') {
+      parts.push(`${key}=${value}`);
     }
   }
 
@@ -376,7 +369,7 @@ export class FlomoClient {
       }
 
       return response.arrayBuffer;
-    } catch (error) {
+    } catch {
       return null;
     }
   }

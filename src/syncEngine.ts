@@ -686,7 +686,7 @@ export class SyncEngine {
     const targetPrefix = targetDir ? `${targetDir}/` : '';
 
     const backlinkIndex = new BacklinkIndex(this.app, this.settings.targetDir);
-    await backlinkIndex.build();
+    backlinkIndex.build();
     this.log('Repair backlinks - index built:', backlinkIndex.size(), 'entries');
 
     const allFiles = this.app.vault.getMarkdownFiles();

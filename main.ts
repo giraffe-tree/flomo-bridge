@@ -141,7 +141,7 @@ export default class FlomoSyncPlugin extends Plugin {
     }
 
     if (!this.settings.token) {
-      new Notice('Please configure Flomo token first', 5000);
+      new Notice('Access token not configured. Open settings to add it.', 5000);
       this.openSettings();
       return;
     }
@@ -229,7 +229,7 @@ export default class FlomoSyncPlugin extends Plugin {
     }
 
     if (!this.settings.token) {
-      new Notice('Please configure Flomo token first', 5000);
+      new Notice('Access token not configured. Open settings to add it.', 5000);
       this.openSettings();
       return;
     }
@@ -446,7 +446,7 @@ export default class FlomoSyncPlugin extends Plugin {
 
     if (error instanceof FlomoApiError) {
       if (error.status === 401 || error.code === -1) {
-        new Notice('Flomo Token 无效或已过期，请重新配置', 5000);
+        new Notice('Flomo token 无效或已过期，请重新配置', 5000);
       } else if (error.status === 429) {
         new Notice('请求过于频繁，请稍后再试', 5000);
       } else {
